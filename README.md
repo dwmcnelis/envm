@@ -2,7 +2,7 @@
 
 ### Overview
 
-A simple cli tool to manage multiple .env for different environments:
+A simple cli tool to manage multiple .env for different environments. It is written in crystal (compiled ruby) See: [The Crystal Programming Language](https://crystal-lang.org/)
 
 ```
 Manage .env versions
