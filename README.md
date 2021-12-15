@@ -84,7 +84,7 @@ These would all be combined using a single `envm use` command:
 envm use dev
 ```
 
-Would combine all of these partials into a single .env
+This would combine all of these partials into a single .env
 
 `.env.dev` would contain the non-secret base (or common) envars.
 `.env.dev.personal-secrets` would contain personal secrets (local dev mysql user/password)
