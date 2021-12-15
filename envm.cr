@@ -3,6 +3,7 @@ require "option_parser"
 list = false
 current = false
 use = false
+test = false
 env = "dev"
 
 parser = OptionParser.new do |parser|
@@ -39,6 +40,12 @@ parser = OptionParser.new do |parser|
 
     parser.banner = "Usage: envm use <env>"
   end
+
+	parser.on("test", "Test things") do
+    test = true
+    parser.banner = "Usage: envm test env"
+		env = ARGV[1]
+  end
 	
 	parser.missing_option do |option_flag|
     STDERR.puts "ERROR: #{option_flag} is missing something."
@@ -56,7 +63,9 @@ end
 
 parser.parse
 
-if list
+if test
+	loadPartials(env)
+elsif list
 	list_envs
 elsif current
   current_env
@@ -98,6 +107,47 @@ def load(file)
 	File.read(file).split("\n")
 end
 
+def parse(lines)
+	parsed = {} of String => String
+	lines.each do |line|
+		parts = line.split("=").map { |part| part.strip }
+		if parts.size === 2
+			key = parts[0]
+			value = parts[1]
+			parsed[key] = value
+		end
+	end
+	parsed
+end
+
+def render(content)
+	rendered = [] of String
+	content.each do |key, value|
+		rendered.push("#{key}=#{value}")
+	end
+	rendered
+end
+
+
+def loadPartials(env)
+	files = Dir.glob(".env.#{env}*" , match_hidden: true).sort
+	base_files = files.select { |file| file === ".env.#{env}" }
+	base_file = if base_files.size === 1
+	 base_files.pop
+	end
+	partial_files = files.reject { |file| file === ".env.#{env}" }
+	content = if base_file 
+		parse(load(base_file))
+	end || {} of String => String
+	partial_files.each do |partial_file|
+		partial = parse(load(partial_file))
+		partial.each do |key, value|
+			content[key] = value
+		end
+	end
+	render(content)
+end
+
 def save(lines, file)
 	File.write(file, lines.join("\n"))
 end
@@ -107,11 +157,13 @@ def strip(lines)
 end
 
 def backup(file)
-	save(load(file), "#{file}~")
+	if File.exists?(file)
+		save(load(file), "#{file}~")
+	end
 end
 
 def use(env)
-	save(strip(load(".env.#{env}")).unshift("ENVM=#{env}\n"), ".env")
+	save(strip(loadPartials(env)).unshift("ENVM=#{env}\n"), ".env")
 end
 
 def id(file)

@@ -1,4 +1,6 @@
-### envm .env manager
+## envm: A .env manager
+
+### Overview
 
 A simple cli tool to manage multiple .env for different environments:
 
@@ -63,4 +65,37 @@ Which would show:
 
 ```
 dev
+```
+
+### Partials
+
+Sometimes it is useful to spit up a env into parts. Consider the follow env files:
+
+```
+.env.dev
+.env.dev.personal-secrets
+.env.dev.shared-secrets
+.env.dev.overrides
+```
+
+These would all be combined using a single `envm use` command:
+
+```
+envm use dev
+```
+
+Would combine all of these partials into a single .env
+
+`.env.dev` would contain the non-secret base (or common) envars.
+`.env.dev.personal-secrets` would contain personal secrets (local dev mysql user/password)
+`.env.dev.shard-secrets` would contain shared secrets (shared certs, keys, etc.)
+`.env.dev.overrides` would contain other overrides
+
+The base `.env.dev` is loaded first, then each partial `.env.dev.*` is loaded in order and its contents is merged and superceeds current content. If you need to control the order that partials are applied, you can force order via naming:
+
+```
+.env.dev
+.env.dev.1-shared-secrets
+.env.dev.2-personal-secrets
+.env.dev.3-overrides
 ```
