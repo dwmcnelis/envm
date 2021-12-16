@@ -1,16 +1,16 @@
 require "option_parser"
 
+version = "1.0.0"
 list = false
 current = false
 use = false
-test = false
 env = "dev"
 
 parser = OptionParser.new do |parser|
   parser.banner = "Manage .env versions"
 
   parser.on "-v", "--version", "Show version" do
-    puts "version 1.0"
+    puts "version #{version}"
     exit
   end
   
@@ -40,12 +40,6 @@ parser = OptionParser.new do |parser|
 
     parser.banner = "Usage: envm use <env>"
   end
-
-	parser.on("test", "Test things") do
-    test = true
-    parser.banner = "Usage: envm test env"
-		env = ARGV[1]
-  end
 	
 	parser.missing_option do |option_flag|
     STDERR.puts "ERROR: #{option_flag} is missing something."
@@ -63,9 +57,7 @@ end
 
 parser.parse
 
-if test
-	loadPartials(env)
-elsif list
+if list
 	list_envs
 elsif current
   current_env
@@ -104,30 +96,57 @@ def list
 end
 
 def load(file)
-	File.read(file).split("\n")
+	if File.exists?(file)
+		File.read(file).split("\n")
+	else
+		[] of String
+	end
 end
 
-def parse(lines)
-	parsed = {} of String => String
-	lines.each do |line|
-		parts = line.split("=").map { |part| part.strip }
-		if parts.size === 2
-			key = parts[0]
-			value = parts[1]
-			parsed[key] = value
+def envar?(line)
+	str = line.strip()
+	str.match(/.*\=.*/)
+end
+
+def comment?(line)
+	str = line.strip()
+	str.starts_with?("#")
+end
+
+def blank?(line)
+	str = line.strip()
+	str === ""
+end
+
+def parse(line)
+	str = line.strip()
+	if /(.*)\=(.*)/ =~ str
+		[$1, $2]
+	else
+		[nil, nil]
+	end
+end
+
+def merge(candidate_line, content)
+	if envar?(candidate_line)
+		candidate_envar, candidate_value = parse(candidate_line)
+		found = false
+		content.each_with_index do |content_line, index|
+			if envar?(content_line)
+				content_envar, content_value = parse(content_line)
+				if candidate_envar === content_envar
+					found = true
+					content[index] = "#{candidate_envar}=#{candidate_value}"
+				end
+			end
 		end
+		if !found
+			content.push("#{candidate_envar}=#{candidate_value}")
+		end
+	elsif blank?(candidate_line) || comment?(candidate_line)
+		content.push(candidate_line)
 	end
-	parsed
 end
-
-def render(content)
-	rendered = [] of String
-	content.each do |key, value|
-		rendered.push("#{key}=#{value}")
-	end
-	rendered
-end
-
 
 def loadPartials(env)
 	files = Dir.glob(".env.#{env}*" , match_hidden: true).sort
@@ -137,15 +156,15 @@ def loadPartials(env)
 	end
 	partial_files = files.reject { |file| file === ".env.#{env}" }
 	content = if base_file 
-		parse(load(base_file))
-	end || {} of String => String
+		load(base_file)
+	end || [] of String
 	partial_files.each do |partial_file|
-		partial = parse(load(partial_file))
-		partial.each do |key, value|
-			content[key] = value
+		partial = load(partial_file)
+		partial.each do |line|
+			merge(line, content)
 		end
 	end
-	render(content)
+	content
 end
 
 def save(lines, file)
@@ -153,7 +172,7 @@ def save(lines, file)
 end
 
 def strip(lines)
-	lines.reject { |line| line.starts_with?("ENVM=") } 
+	(lines || [] of String).reject { |line| line.starts_with?("ENVM=") } 
 end
 
 def backup(file)
